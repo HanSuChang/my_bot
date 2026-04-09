@@ -14,13 +14,14 @@ class PurePursuit(Node):
             linear_velocity * (2 * sin(diff_to_target_angle) / lookahead_distance)
         '''
 
-        self.lookahead_distance = 0.5 # 전방 주시 거리 (훈련생이 정하기)
+        self.lookahead_distance = 0.2 # 전방 주시 거리 (훈련생이 정하기)
         self.linear_velocity = 0.2 # linear.x 값 (훈련생이 정하기)     
         self.goal_tolerance = 0.2 # 목표와의 거리 허용 범위 (훈련생이 정하기)     
 
 				# 목적지 좌표 : 내가 가고자 하는 곳의 좌표를 RViz에서 확인!
         self.path = [
-            [1.870, 1.120]
+            [1.5, 0.5]
+            [1.8, 1.1]
         ]
         self.current_waypoint_index = 0
 
