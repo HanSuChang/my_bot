@@ -8,19 +8,18 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
+    
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
     
     
     map_file_path = os.path.expanduser('~/my_ws/src/my_bot/map/my_map.yaml')
-
-    
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     map_yaml_file = LaunchConfiguration('map', default=map_file_path)
-
     
     
+    params_file_path = os.path.join(nav2_bringup_dir, 'params', 'nav2_params.yaml')
 
-    # 1. Localization (AMCL) 실행
+    
     localization_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(nav2_bringup_dir, 'launch', 'localization_launch.py')
@@ -28,15 +27,24 @@ def generate_launch_description():
         launch_arguments={
             'map': map_yaml_file,
             'use_sim_time': use_sim_time,
-            'params_file': os.path.join(nav2_bringup_dir, 'params', 'nav2_params.yaml')
+            'params_file': params_file_path
         }.items()
     )
 
     
-    rviz_config_dir = os.path.join(
-        get_package_share_directory('nav2_bringup'), 
-        'rviz', 'nav2_default_view.rviz')
+    # 이 부분이 실행되어야 RViz의 Nav2 Goal 버튼이 작동
+    navigation_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(nav2_bringup_dir, 'launch', 'navigation_launch.py')
+        ),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'params_file': params_file_path
+        }.items()
+    )
 
+    # 3. RViz2 실행 (Nav2 전용 설정 로드)
+    rviz_config_dir = os.path.join(nav2_bringup_dir, 'rviz', 'nav2_default_view.rviz')
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -54,10 +62,11 @@ def generate_launch_description():
         
         DeclareLaunchArgument(
             'use_sim_time',
-            default_value='false', # 기본값도 false로 변경
+            default_value='false',
             description='Use simulation (Gazebo) clock if true'),
 
         
         localization_launch,
+        navigation_launch,
         rviz_node
     ])
