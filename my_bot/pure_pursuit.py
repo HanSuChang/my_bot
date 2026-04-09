@@ -1,8 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from rclpy.parameter import Parameter
 from rcl_interfaces.msg import SetParametersResult
-
 from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
 from math import pow, atan2, sqrt, sin, pi
 
@@ -11,14 +9,21 @@ class PurePursuit(Node):
     def __init__(self):
         super().__init__('pure_pursuit_node')
 
+        '''
+            teacher:
+            how to calculate angular velocity?
+            linear_velocity * (2 * sin(diff_to_target_angle) / lookahead_distance)
+        '''
+
         self.lookahead_distance = 0.5
         self.linear_velocity = 0.2
         self.goal_tolerance = 0.2
 
         # path 파라미터 선언
-        # 형식: [x1, y1, x2, y2, x3, y3, ...]
+        # 2차원 좌표를 평탄화(flatten)해서 받음: [x1, y1, x2, y2, ...]
         self.declare_parameter('path', [3.557, -0.168])
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         self.lookahead_distance = 0.2 # 전방 주시 거리 (훈련생이 정하기)
         self.linear_velocity = 0.2 # linear.x 값 (훈련생이 정하기)     
@@ -34,6 +39,12 @@ class PurePursuit(Node):
         raw_path = self.get_parameter('path').value
         self.path = self.parse_path_parameter(raw_path)
 >>>>>>> 83027aa302c80aeb8f8745eb5779ca5c4de7c318
+=======
+        # 초기 path 설정
+        self.path = self.parse_path_parameter(
+            self.get_parameter('path').value
+        )
+>>>>>>> 936abf44acf32a972a8f8f928a938ba71d04e2c4
         self.current_waypoint_index = 0
 
         self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -48,33 +59,30 @@ class PurePursuit(Node):
         self.current_x = 0.0
         self.current_y = 0.0
         self.current_yaw = 0.0
+
         self.is_localized = False
 
-        # 파라미터 변경 감지 콜백 등록
+        # 동적 파라미터 변경 콜백 등록
         self.add_on_set_parameters_callback(self.parameter_callback)
 
         self.timer = self.create_timer(0.5, self.control_loop)
         self.get_logger().info(f"Pure Pursuit Node Started! path={self.path}")
+        self.get_logger().info("Waiting for AMCL pose...")
 
-    def parse_path_parameter(self, raw_path):
+    def parse_path_parameter(self, flat_path):
         """
-        raw_path: [x1, y1, x2, y2, ...]
-        return: [[x1, y1], [x2, y2], ...]
+        [x1, y1, x2, y2, ...] 형태의 리스트를
+        [[x1, y1], [x2, y2], ...] 형태로 변환
         """
-        if not isinstance(raw_path, (list, tuple)):
-            raise ValueError("path parameter must be a list")
-
-        if len(raw_path) < 2:
-            raise ValueError("path parameter must contain at least 2 values (x, y)")
-
-        if len(raw_path) % 2 != 0:
-            raise ValueError("path parameter length must be even: [x1, y1, x2, y2, ...]")
+        if len(flat_path) % 2 != 0:
+            raise ValueError("path parameter length must be even. Example: [x1, y1, x2, y2]")
 
         parsed_path = []
-        for i in range(0, len(raw_path), 2):
-            x = float(raw_path[i])
-            y = float(raw_path[i + 1])
-            parsed_path.append([x, y])
+        for i in range(0, len(flat_path), 2):
+            parsed_path.append([float(flat_path[i]), float(flat_path[i + 1])])
+
+        if len(parsed_path) == 0:
+            raise ValueError("path parameter must contain at least one waypoint.")
 
         return parsed_path
 
@@ -83,19 +91,16 @@ class PurePursuit(Node):
             if param.name == 'path':
                 try:
                     new_path = self.parse_path_parameter(param.value)
-
                     self.path = new_path
                     self.current_waypoint_index = 0
 
-                    self.get_logger().info(f"Updated path: {self.path}")
+                    self.get_logger().info(f"Path updated: {self.path}")
+                    self.get_logger().info("Restarting navigation from waypoint 0")
 
-                    # 새 목적지로 바로 다시 출발할 수 있게 정지 후 재시작
-                    self.stop_robot()
-
-                except Exception as e:
+                except ValueError as e:
                     return SetParametersResult(
                         successful=False,
-                        reason=f"Invalid path parameter: {str(e)}"
+                        reason=str(e)
                     )
 
         return SetParametersResult(successful=True)
@@ -127,13 +132,8 @@ class PurePursuit(Node):
         distance = sqrt(pow(dx, 2) + pow(dy, 2))
 
         if distance < self.goal_tolerance:
-            self.get_logger().info(
-                f"Waypoint {self.current_waypoint_index} Reached! ({goal_x}, {goal_y})"
-            )
+            self.get_logger().info(f"Waypoint {self.current_waypoint_index} Reached!")
             self.current_waypoint_index += 1
-
-            if self.current_waypoint_index >= len(self.path):
-                self.stop_robot()
             return
 
         target_angle = atan2(dy, dx)
@@ -162,16 +162,12 @@ class PurePursuit(Node):
         cmd.linear.x = 0.0
         cmd.angular.z = 0.0
         self.publisher_.publish(cmd)
-
-    def destroy_node(self):
-        self.stop_robot()
-        super().destroy_node()
+        self.get_logger().info("All waypoints completed. Robot Stopped.")
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = PurePursuit()
-
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
