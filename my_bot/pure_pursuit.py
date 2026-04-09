@@ -20,7 +20,7 @@ class PurePursuit(Node):
 
 				# 목적지 좌표 : 내가 가고자 하는 곳의 좌표를 RViz에서 확인!
         self.path = [
-            [3.557,  -0.168]
+            [1.870, 1.120]
         ]
         self.current_waypoint_index = 0
 
