@@ -1,4 +1,4 @@
-# 🤖 TurtleBot3 자율주행 실행 가이드
+# 🤖 TurtleBot3 자율주행 실행 가이드(Nav2, waypoint)
 
 ## 개요
 
